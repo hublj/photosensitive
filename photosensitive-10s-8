@@ -1,0 +1,113 @@
+#include "STC8G.h"
+#include "intrins.h"
+#include <stdio.h>
+
+// 定义16位无符号整数类型
+typedef unsigned int uint16_t;
+// 定义8位无符号整数类型（原代码中的uchar）
+typedef unsigned char uchar;
+
+// 定义引脚，P3.3作为输出，P5.4作为输入（可根据实际需求调整引脚定义）
+sbit outputPin = P3 ^ 3;
+sbit inputPin = P5 ^ 4;
+
+// 根据24MHz晶振频率（每12个时钟周期为1个机器周期）计算5秒对应的定时器计数次数
+#define FIVE_SECONDS_COUNT (5 * (24000000 / 12) / 1000)
+// 用于记录定时器的计数值，改为16位
+uint16_t timerCount = 0;
+// 标记当前输入引脚的持续电平状态，0表示低电平，1表示高电平
+uchar currentInputLevel = 0;
+// 标记是否开始进行5秒防抖计时，0表示未开始，1表示开始
+uchar startTimer = 0;
+// 声明currentInput变量，用于记录当前输入引脚的实际电平
+uchar currentInput;
+
+// 读取FLASH中24MHz对应的IRTRIM预设值（按规则访问地址）
+#define READ_FLASH_IRTRIM_24MHZ (*(char code *)0xFDF3)
+// 读取RAM中24MHz对应的IRTRIM预设值（按规则访问地址）
+#define READ_RAM_IRTRIM_24MHZ (*(unsigned char idata *)0xFB)
+
+// 假设的IRTRIM寄存器地址，实际要按芯片手册修改
+#define IRTRIM_REGISTER_ADDR (0xXX)
+// 假设的CLKDIV寄存器地址，实际要按芯片手册修改
+#define CLKDIV_REGISTER_ADDR (0xYY)
+
+// 函数声明
+void Timer_Init();
+void GPIO_Init();
+void Clock_Init();
+
+// 定时器初始化函数
+void Timer_Init() {
+    TMOD &= 0xF0;
+    TMOD |= 0x01;  // 设置定时器0为模式1，16位定时器
+
+    // 按照24MHz晶振频率重新准确计算并设置定时器初值高8位和低8位
+    TH0 = (65536 - FIVE_SECONDS_COUNT) / 256;  
+    TL0 = (65536 - FIVE_SECONDS_COUNT) % 256;  
+    ET0 = 1;       // 允许定时器0中断
+    EA = 1;        // 开总中断
+    TR0 = 1;       // 启动定时器0
+}
+
+// GPIO初始化函数，配置引脚模式
+void GPIO_Init() {
+    P3M0 |= 0x08;  // P3.3设置为强推挽输出模式，对应二进制第3位设置为1（00001000）
+    P3M1 &= ~0x08;
+
+    P5M0 &= ~0x10;  // P5.4设置为标准双向口模式，对应二进制第4位设置为0（11110111）
+    P5M1 &= ~0x10;
+}
+
+// 时钟初始化函数，利用预设值配置IRTRIM并设置CLKDIV
+void Clock_Init() {
+    // 先尝试从RAM中读取24MHz对应的IRTRIM预设值（相对更可靠）
+    uchar irtrim_value = READ_RAM_IRTRIM_24MHZ;
+    if (irtrim_value == 0) {
+        // 如果RAM中读取的值为0，再尝试从FLASH中读取（前提是烧录符合要求）
+        irtrim_value = READ_FLASH_IRTRIM_24MHZ;
+        if (irtrim_value == 0xFF) {
+            // 如果FLASH中读取也不符合预期，可进行相应错误处理，这里简单打印提示
+            printf("未能正确获取24MHz对应的IRTRIM预设值，时钟配置可能不准确\n");
+        }
+    }
+    // 将读取到的预设值赋给IRTRIM寄存器
+    *(uchar *)IRTRIM_REGISTER_ADDR = irtrim_value;
+    // 设置CLKDIV = 0，不分频
+    *(uchar *)CLKDIV_REGISTER_ADDR = 0;
+}
+
+// 定时器中断服务函数
+void Timer_ISR() interrupt 1 {
+    // 按照24MHz晶振频率重新准确设置定时器初值高8位和低8位
+    TH0 = (65536 - FIVE_SECONDS_COUNT) / 256;  
+    TL0 = (65536 - FIVE_SECONDS_COUNT) % 256;  
+    currentInput = inputPin;  // 获取当前输入引脚的实际电平
+    if (currentInput == currentInputLevel) {  // 当前输入电平与持续电平状态一致
+        if (startTimer == 0) {
+            startTimer = 1;
+            timerCount = 0;
+        }
+        if (timerCount < FIVE_SECONDS_COUNT) {
+            timerCount++;
+        } else {
+            timerCount = 0;
+            outputPin = currentInputLevel;  // 5秒防抖时间到，输出对应电平
+            startTimer = 0;
+        }
+    } else {  // 当前输入电平与持续电平状态不一致，重新计时
+        currentInputLevel = currentInput;
+        startTimer = 0;
+        timerCount = 0;
+    }
+}
+
+void main() {
+    Clock_Init();
+    Timer_Init();
+    GPIO_Init();
+    outputPin = 0;  // 初始输出低电平，可根据实际情况调整
+    while (1) {
+        // 这里可以添加其他的主循环内操作，比如一些系统状态监测等
+    }
+}

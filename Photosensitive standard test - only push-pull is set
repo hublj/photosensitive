@@ -20,6 +20,14 @@ bit currentInput = 0;
 // 定义30秒对应的定时器计数次数（用于防抖计时，以10毫秒为计时单位）
 uint16_t THIRTY_SECONDS_COUNT = 3000;
 
+// GPIO初始化函数，配置引脚模式
+void GPIO_Init() {
+    P3M0 |= 0x08;  // P3.3设置为强推挽输出模式，对应二进制第3位设置为1（00001000）
+    P3M1 &= ~0x08;
+
+    
+}
+
 // 定时器0初始化函数（实现10毫秒定时）
 void Timer0_Init(void)                //10毫秒@24.000MHz
 {
@@ -73,6 +81,9 @@ void Timer0_ISR() interrupt 1
 // 主函数
 void main()
 {
+	  // 初始化GPIO
+    GPIO_Init();
+	
     // 初始化定时器
     Timer0_Init();
 

@@ -1,0 +1,82 @@
+#include <STC8G.h>
+
+// 定义16位和8位无符号整数类型别名
+typedef unsigned int uint16_t;
+typedef unsigned char uchar;
+
+// 修改后的输入引脚（P5.5）
+sbit inputPin = P5^5;
+// 修改后的输出引脚（P3.2）
+sbit outputPin = P3^2;
+
+// 用于记录定时器计数值
+uint16_t timerCount = 0;
+// 当前输入引脚电平状态
+uchar currentInputLevel = 0;
+// 是否开始计时
+bit startTimer = 0;
+// 当前输入引脚实际电平
+bit currentInput = 0;
+// 定义30秒对应的定时器计数次数（用于防抖计时，以10毫秒为计时单位）
+#define DEBOUNCE_TIME_COUNT 3000 // 30秒
+
+// GPIO初始化函数，配置引脚模式
+void GPIO_Init() {
+    P3M0 |= 0x04;  // P3.2设置为强推挽输出模式，对应二进制第2位设置为1（00000100）
+    P3M1 &= ~0x04;
+
+    P5M0 &= ~0x20; // P5.5设置为高阻输入模式，对应二进制第5位设置为0（11111011）
+    P5M1 &= ~0x20; // P5.5设置为标准双向口输入模式
+}
+
+// 定时器0初始化函数（实现10毫秒定时）
+void Timer0_Init(void) {
+    AUXR &= 0x7F;                        // 定时器时钟12T模式
+    TMOD &= 0xF0;                        // 设置定时器模式
+    TMOD |= 0x01;                        // 设置定时器模式
+    TL0 = 0xE0;                          // 设置定时初始值
+    TH0 = 0xB1;                          // 设置定时初始值
+    TF0 = 0;                             // 清除TF0标志
+    TR0 = 1;                             // 定时器0开始计时
+    ET0 = 1;                             // 使能定时器0中断
+    EA = 1;                              // 开启全局中断
+}
+
+// 定时器0中断服务函数
+void Timer0_ISR() interrupt 1 {
+    // 重新设置定时初始值
+    TL0 = 0xE0;
+    TH0 = 0xB1;
+
+    // 获取当前输入引脚电平
+    currentInput = inputPin;
+
+    if (currentInput != currentInputLevel) {
+        currentInputLevel = currentInput;
+        startTimer = 1;
+        timerCount = 0;
+    } else if (startTimer == 1) {
+        timerCount++;
+        if (timerCount >= DEBOUNCE_TIME_COUNT) {
+            // 达到30秒防抖时间，进行相应输出控制逻辑
+            outputPin = currentInput;
+            startTimer = 0;
+            timerCount = 0;
+        }
+    }
+}
+
+// 主函数
+void main() {
+    // 初始化GPIO
+    GPIO_Init();
+    // 初始化定时器
+    Timer0_Init();
+
+    // 初始化输出引脚为低电平
+    outputPin = 0;
+
+    while (1) {
+        // 这里可以添加其他系统状态监测等操作，目前为空循环等待中断处理
+    }
+}

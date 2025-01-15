@@ -1,6 +1,6 @@
 *图中改用220k电阻，和光敏电阻5516，一个1K电阻，和一个10K电阻，和两个SS8050或两个SS8550
 
-https://github.com/hublj/photosensitive/blob/main/circuit%20diagram.jpg
+![image](https://github.com/hublj/photosensitive/blob/main/circuit%20diagram.jpg)
 
 FLASH 部分：
 

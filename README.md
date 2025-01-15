@@ -9,6 +9,12 @@
 • 完成后提交。
 
 ![image](https://i-blog.csdnimg.cn/blog_migrate/8bb41cb7146dfe5c1c3a24d33445732d.png)
+
+
+编辑仓库主页的 README.md 文档，在想要插入图片的位置中插入语句：
+注意语句格式，![image]() 括号中插入图片链接。
+• 完成后提交。
+![image](https://i-blog.csdnimg.cn/blog_migrate/8bb41cb7146dfe5c1c3a24d33445732d.png)
 FLASH 部分：
 
 

@@ -89,7 +89,7 @@ else
     outputPin = 0; // 停止输出
 }
 
-/*
+*/
 
 // 主函数
 void main()

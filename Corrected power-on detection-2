@@ -78,6 +78,19 @@ void Timer0_ISR() interrupt 1 {
     }
 }
 
+/*高电平有效检测
+
+if (currentInput == 1) // 如果输入引脚是高电平
+{
+    outputPin = 1; // 激活输出引脚
+}
+else
+{
+    outputPin = 0; // 停止输出
+}
+
+/*
+
 // 主函数
 void main()
 {
